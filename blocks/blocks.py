@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import random
 from matplotlib import pyplot as plt
+import datetime
 
 '''
 performance function factors
@@ -20,8 +21,11 @@ image structure:
 # use image structure to generate image using rectangles 
 def generate_image(image):
 	blank = np.zeros([image[0]['size'][0],image[0]['size'][1],3], dtype=np.uint8)
+	if len(image) == 1:
+		return blank
+	
 	for block in image[1:]:
-		cv2.rectangle(blank, block['bottomleft'], block['topright'], (255,0,0), -1)
+		cv2.rectangle(blank, block['bottomleft'], block['topright'], (int(block['color'][0]), int(block['color'][1]),int(block['color'][2])), -1)
 	return blank
 
 # absolute element wise difference of colors
@@ -35,7 +39,7 @@ def performance(original, image):
 	for row in range(actual.shape[0]):
 		for column in range(actual.shape[1]):
 			total += difference(actual[row][column], original[row][column])
-	return total * (len(image) - 1)
+	return total# * (len(image) - 1)
 
 # perform a random change to the image
 def random_change(image):
@@ -60,6 +64,12 @@ def random_change(image):
 			image[random.randrange(1, len(image))]['color'] = (np.random.randint(0, 255, 3))
 	return image 
 
+def mutate(image, maxchanges):
+	for c in range(random.randint(1, maxchanges)):
+		image = random_change(image)
+	perf = performance(original, image)
+	return perf, image
+
 # init
 file = r"D:\Projects\Programming\Python Scripts\.image effects\imgfx\blocks\candle_downscale.png"
 original = cv2.cvtColor(
@@ -67,31 +77,38 @@ original = cv2.cvtColor(
 	cv2.COLOR_BGR2RGB)
 
 iterations = 1000
-batch_size = 10
-changes = 2
+batch_size = 50
+changes = 5
 batch = [[{'size' : original.shape[:2]}]] * batch_size # create a bunch of image 
+
+perf_history = []
 result = None
+last_lowest = np.Infinity
+i = 0
 # main loop
-for i in range(iterations):
-	for image in batch:
-		image = random_change(image)
-	
-	closest_image = None
-	lowest_performance = np.Infinity
+while datetime.datetime.now().hour != 6:
+	closest_image = batch[0]
+	lowest_performance = last_lowest
 	for image in batch[1:]:
-		perf = performance(original, image)
+		perf, image = mutate(image, changes)
+		
 		if perf < lowest_performance:
 			lowest_performance = perf
-			closest_image = image
+			closest_image = image		
 	
-	batch = [closest_image] * batch_size
+	batch = [closest_image] * batch_size	
 
-	if i == iterations - 1:
-		result = closest_image
-
-	print(f"iteration {i} best perf {lowest_performance}")
-
+	if lowest_performance == last_lowest:
+		print(f"iteration {i} had no improvements, best perf {lowest_performance}")
+	else:
+		print(f"iteration {i} best perf {lowest_performance}")
+	
+	last_lowest = lowest_performance
+	perf_history.append(lowest_performance)
+	result = closest_image
+	i+=1
 
 final = generate_image(result)
+cv2.imwrite(r"D:\Projects\Programming\Python Scripts\.image effects\imgfx\blocks\output.png", final)
 plt.imshow(final)
 plt.show()
