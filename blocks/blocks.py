@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 import datetime
 import os
 import threading
+import time
 
 # get the average color over a region of an image
 def region_average(image, pos0, pos1):
@@ -51,8 +52,8 @@ def random_change(image):
             del image[random.randrange(1, len(image))]
         
         case 2: # move a random rect
-            image[random.randrange(1, len(image))]['pos0'] = (int(random.randrange(0, image[0]['size'][1])), int(random.randrange(0, image[0]['size'][0])))
-            image[random.randrange(1, len(image))]['pos1'] = (int(random.randrange(0, image[0]['size'][1])), int(random.randrange(0, image[0]['size'][0])))
+            image[random.randrange(1, len(image))]['pos0'] = (int(random.randrange(0, image[0]['size'][0])), int(random.randrange(0, image[0]['size'][1])))
+            image[random.randrange(1, len(image))]['pos1'] = (int(random.randrange(0, image[0]['size'][0])), int(random.randrange(0, image[0]['size'][1])))
     return image 
 
 # performs random number of random changes to an 
@@ -65,16 +66,34 @@ def mutate(image, maxchanges):
 
 # performs batch number of mutations as a group
 def group(image, maxchanges, batch_size, output, group_index):
+    global total_mutations
+
     best_performance = np.inf
     best_image = None
+
     for i in range(batch_size):
         #print(f"processing item {i} in group {group_index}", flush=True)
         perf, thisImage = mutate(image[::], maxchanges)
         if perf < best_performance:
             best_performance = perf
             best_image = thisImage
+        total_mutations += 1
+    
     output[group_index] = [best_performance, best_image]
 
+def progressBar(max_mutations, _):
+	global total_mutations
+
+	startTime = time.time()
+	barlength = 30
+	
+	while total_mutations < max_mutations:
+		progress = total_mutations / max_mutations
+		chars = round(progress * barlength)
+		progressText = "Progress: [" + "="*chars + "-"*(barlength - chars) + "] {:.2f}%".format(progress * 100)
+		
+		print(progressText ,end='\r')
+	print("\nFinished! Processing took {:.2f} seconds.".format(time.time() - startTime))
 
 # init
 path = r"D:\Projects\Programming\Python Scripts\.image effects\imgfx\blocks\output"
@@ -88,27 +107,36 @@ groups = 30
 batch_size = 10
 changes = 50
 closest_image = [{'size' : original.shape[:2][::-1]}] # create a blank image 
+total_mutations = 0
 
 perf_history = []
 final = None
 last_lowest = np.Infinity
+
+i = 0
 # main loop
-for i in range(iterations):
+while datetime.datetime.now().hour != 20:
+    print(f"Starting iter {i}")
     threads = []
     results = [[]] * groups
     for t in range(groups):
-        print(f"processing group {t}")
-        thread = threading.Thread(target = group, args = (closest_image, changes, batch_size, results, t))
+        #print(f"processing group {t}")
+        thread = threading.Thread(target=group, args=(closest_image, changes, batch_size, results, t))
         threads.append(thread)
         thread.name = "Group " + str(t)
         thread.start()
+    max_mutations = groups * batch_size
+    progressBarThread = threading.Thread(target=progressBar, args=(max_mutations, 0), name="Progress Bar")
+    threads.append(progressBarThread)
+    progressBarThread.start() 
+    
     for t in threads:
         t.join()
     
     lowest_performance = last_lowest
     for g, result in enumerate(results):
         perf, image = result
-        print(f"group index {g} had a best performance of {perf}")
+        #print(f"group index {g} had a best performance of {perf}")
         if perf < lowest_performance:
             lowest_performance = perf
             closest_image = image
@@ -121,6 +149,7 @@ for i in range(iterations):
     last_lowest = lowest_performance
     perf_history.append(lowest_performance)
     final = closest_image
+    total_mutations = 0
     i+=1
 
 final_image = generate_image(final, original)
@@ -132,7 +161,7 @@ highest_number = max([int(filename[6:-4]) for filename in output_files])
 filename = f"output{highest_number + 1}.png"
 cv2.imwrite(os.path.join(path, filename), cv2.cvtColor(final_image, cv2.COLOR_RGB2BGR))
 
-x_axis = range(iterations)
+x_axis = range(len(perf_history))
 plt.plot(x_axis, perf_history)
 plt.title('best performance by iteration')
 plt.xlabel('iteration')
