@@ -118,7 +118,7 @@ last_lowest = np.Infinity
 
 i = 0
 # main loop
-while datetime.datetime.now().hour != 6:
+while datetime.datetime.now().hour != 7:
     print(f"Starting iter {i}")
     threads = []
     results = [[]] * groups
