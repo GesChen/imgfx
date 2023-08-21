@@ -39,7 +39,10 @@ def performance(original, image):
 
 # perform a random change to the image
 def random_change(image):
-    choice = random.randrange(0, 3) # pick a random choice
+    choice = random.randrange(0, 6) # pick a random choice
+    if choice < 3: choice = 0
+    else: choice -= 3
+
     if len(image) == 1: # force add a rect if empty image
         choice = 0
     match choice:
@@ -104,7 +107,7 @@ original = cv2.cvtColor(
 
 iterations = 10
 groups = 30
-batch_size = 10
+batch_size = 20
 changes = 50
 closest_image = [{'size' : original.shape[:2][::-1]}] # create a blank image 
 total_mutations = 0
@@ -115,7 +118,7 @@ last_lowest = np.Infinity
 
 i = 0
 # main loop
-while datetime.datetime.now().hour != 20:
+while datetime.datetime.now().hour != 6:
     print(f"Starting iter {i}")
     threads = []
     results = [[]] * groups
