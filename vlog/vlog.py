@@ -26,9 +26,9 @@ def hsv2rgb(h, s, v, a):
 		case 4: return(t, w, v, a)
 		case 5: return(v, w, q, a)
 
-def mapRange(value, from_min, from_max, to_min, to_max):
-	slope = (to_max - to_min) / (from_max - from_min)
-	return to_max + slope * (value - from_min)
+	def mapRange(value, from_min, from_max, to_min, to_max):
+		slope = (to_max - to_min) / (from_max - from_min)
+		return to_max + slope * (value - from_min)
 
 class Item:
 	def __init__(self, pos, thick, color):

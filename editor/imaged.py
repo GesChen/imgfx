@@ -4,19 +4,26 @@ import os
 import curses
 import threading 
 import hashlib
-import time
+from time import sleep
+from datetime import datetime
 
-# no guides, full naive method... watch out, bad code ahead!
+## supporting functions
+def is_path(string):
+    return os.path.isabs(string) or os.path.exists(string)
 
 def get_file_hash(file_path):
     with open(file_path, 'rb') as file:
         return hashlib.md5(file.read()).hexdigest()
 
+## display
 def print_(text):
     global terminal
     terminal.append(text)
 
 def ERROR(reason, line):
+    reason = str(reason)
+    #lastLeftParentheses = reason.rfind('(') if '(' in reason else len(reason) + 1
+    #print_(f'Error: {reason[:lastLeftParentheses - 1]} (Line {line + 1})')
     print_(f'Error: {reason} (Line {line + 1})')  
 
 def curses_main(stdscr):
@@ -43,98 +50,101 @@ def curses_main(stdscr):
 def curses_thread():
     curses.wrapper(curses_main) # type: ignore (random bug not sure why happens)
 
-def image_init(path):
-    return
+def preview_thread():
+    while True:
+        if IMAGE.shape[0] != 0:
+            dimensions = IMAGE.shape[:2][::-1]
+            factor = dimensions[0] / 1000
+            resized = cv2.resize(IMAGE, (int(dimensions[0] / factor), int(dimensions[1] / factor)))
+            cv2.imshow("Image", cv2.cvtColor(resized, cv2.COLOR_RGB2BGR))
+            cv2.waitKey(1)
 
-functions = {
-    'print' : {'function':print_, 'args':1},
-    'init'  : {'function':image_init,   'args':1}
-}
+## editing debug 
+def edit(path):
+    global IMAGE
+    IMAGE = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
+
+def dim():
+    print_(IMAGE.shape[:2][::-1])
+
+## color and math functions
+def mapRange(value, from_min, from_max, to_min, to_max):
+	slope = (to_max - to_min) / (from_max - from_min)
+	return to_max + slope * (value - from_min)
+
+def clamp(x, low, high):
+	return max(low, min(high, x))
+
+def rgb2bgr(col):
+    return col[::-1]
+
+def hsv(h, s, v, a = 1):
+	if h == 1: h = 0
+	i = int(h*6)
+	f = h * 6 - i
+
+	w = v * (1 - s)
+	q = v * (1 - s * f)
+	t = v * (1 - s * (1 - f))
+
+	match i:
+		case 0: return(v, t, w, a)
+		case 1: return(q, v, w, a)
+		case 2: return(w, v, t, a)
+		case 3: return(w, q, v, a)
+		case 4: return(t, w, v, a)
+		case 5: return(v, w, q, a)
+
+def hex(hex):
+    hex = hex.lstrip('#')
+
+    r = int(hex[0:2], 16)
+    g = int(hex[2:4], 16)
+    b = int(hex[4:6], 16)
+    
+    return (r, g, b, 1)
+
+## image editing functions
+def rectangle(x1, y1, x2, y2, color, thickness):
+    global IMAGE
+    if len(color) == 3:
+        cv2.rectangle(IMAGE, (x1, y1), (x2, y2), color[:3], thickness)
+        return
+    copy = IMAGE.copy()
+    alpha = color[3]
+    cv2.rectangle(copy, (x1, y1), (x2, y2), color[:3], thickness)
+    cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
+def rect(x1, y1, x2, y2, color, thickness):
+    rectangle(x1, y1, x2, y2, color, thickness)
+
+def text(x, y, content, color, thickness, size, font = 0):
+    global IMAGE
+    if len(color) == 3:
+        cv2.putText(IMAGE, content, (x, y), font, size, color[:3], thickness)
+        return
+    copy = IMAGE.copy()
+    alpha = 1 - color[3]
+    cv2.putText(IMAGE, content, (x, y), font, size, color[:3], thickness)
+    cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
 
 edit_filepath = r'D:\Projects\Programming\Python Scripts\.image effects\imgfx\editor\test.ed'
+
+terminal = [0]
 
 # seperate thread for terminal output
 cThread = threading.Thread(target=curses_thread, name="Curses")
 cThread.start()
 
+# another thread for image preview
+pThread = threading.Thread(target=preview_thread, name="Preview")
+pThread.start()
+
 # session variables
-variables = {}
+time = 0
+IMAGE = np.array([])
+live = False
 
-def evaluate(expression):
-    for var in variables:
-        if var in expression:
-            expression = expression.replace(var, str(variables[var]))
-    return eval(expression)
-
-def scanline(start, line, l):
-    function = ''
-    for c, char in enumerate(line[start:]):
-        if   char == '#': #comments
-            break
-        elif char == '(': #functions 
-            if function in functions.keys(): #is a real function?
-                # get args
-                ai = c # arg index
-                accum = ''
-                args = []
-                inString = False
-                isString = False
-                while ai < len(line) - 1:
-                    ai += 1
-                    charInArg = line[ai]
-                    if ai == len(line): # endofline but no break? error. 
-                        ERROR("Unclosed parentheses", l)
-                        charInArg = line[ai - 1]
-                        if inString and not(charInArg == "'" or charInArg == '"'):
-                            ERROR("Unclosed string", l)
-                        return -1
-
-                    if charInArg == '"' or charInArg == "'": #hit start/end of string arg?
-                        inString = not inString #toggle
-                        isString = True
-                        continue #skip this char 
-
-                    elif charInArg == "," and not inString: #new arg
-                        if accum in variables.keys():
-                            accum = variables[accum]
-                        elif not isString:
-                            accum = evaluate(accum)
-                        args.append(accum) #append to list
-                        accum = '' #reset accum
-                        isString = False
-                        continue #skip this char
-
-                    accum += charInArg
-                if accum in variables.keys():
-                    accum = variables[accum]
-                elif not isString:
-                    accum = evaluate(accum)
-                args.append(accum)
-                # check to make sure the args given match expected
-                expected = functions[function]['args']
-                if len(args) != expected:
-                    ERROR(f'Function "{function}" expects {expected} arguments, got {len(args)} instead', l)
-                    return -1
-
-                functions[function]['function'](*args) #execute func and pass args
-                break
-            else:
-                ERROR(f"Unknown function {function}", l)
-                break
-        elif char == '=': #variables
-            value = line[c+2:].strip()
-            if value[0] == '"' or value[0] == "'":
-                if value[-1] != "'" and value[-1] != '"':
-                    ERROR(f"Unclosed string", l)
-                    return -1
-                
-                value = value[1:-1]
-            elif value.isnumeric():
-                value = float(value)
-            variables[function.strip()] = value
-            break
-        function += char
-
+starttime = datetime.now()
 lasthash = ''
 while True: 
     variables = {}
@@ -142,12 +152,17 @@ while True:
 
     current_hash = get_file_hash(edit_filepath)
     # scan lines
-    if current_hash != lasthash: #only process file if it has changed
+    if current_hash != lasthash or live: #only process file if it has changed or live update is on
         lasthash = current_hash
         with open(edit_filepath, 'r') as file:
-            # TODO: SPLIT INTO MULTIPLE FUNCTIONS
             for l, line in enumerate(file):
-                # scan through line
-                scanline(0, line, l)
+                time = datetime.now() - starttime
+
+                line = line.replace('print', 'print_')
+                try: 
+                    exec(line.strip())
+                except Exception as e:
+                    ERROR(e, l)
+
             terminal[0] = 1 # terminal is ready to be printed
-    time.sleep(.01)
+    if not live: sleep(.002)
