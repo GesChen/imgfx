@@ -75,6 +75,9 @@ def mapRange(value, from_min, from_max, to_min, to_max):
 def clamp(x, low, high):
 	return max(low, min(high, x))
 
+def lerp(a, b, t):
+    return np.subtract(b, np.multiply(np.subtract(b, a), t))
+
 def rgb2bgr(col):
     return col[::-1]
 
@@ -134,7 +137,7 @@ def polygon(points, color, thickness, closed = True):
         return
     copy = IMAGE.copy()
     alpha = color[3]
-    cv2.polylines(IMAGE, points, closed, color[:3], thickness)
+    cv2.polylines(IMAGE, [points], closed, color[:3], thickness)
     cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
 
 def path(points, color, thickness):
@@ -178,6 +181,34 @@ def circle(x, y, radius, color, thickness):
 def arc(x, y, radius, startAngle, endAngle, color, thickness):
     ellipse(x - radius / 2, y - radius / 2, x + radius / 2, y + radius / 2, color, thickness, 0, startAngle, endAngle)
 
+def cubic_bezier(points, t):
+    p = points
+
+    q0 = lerp(p[0], p[1], t)
+    q1 = lerp(p[1], p[2], t)
+    q2 = lerp(p[2], p[3], t)
+
+    r0 = lerp(q0, q1, t)
+    r1 = lerp(q1, q2, t)
+
+    point = lerp(r0, r1, t)
+    return (int(point[0]), int(point[1]))
+
+def bezier(x1, y1, x2, y2, x3, y3, x4, y4, color, thickness, samples = 20):
+    points = np.array([
+        cubic_bezier([
+            (x1, y1), 
+            (x2, y2), 
+            (x3, y3), 
+            (x4, y4)], 
+            t / samples) 
+        for t in range(samples + 1)], dtype=np.int32)
+
+    path(points, color, thickness)
+
+
+
+
 edit_filepath = r'D:\Projects\Programming\Python Scripts\.image effects\imgfx\editor\test.ed'
 
 terminal = [0]
@@ -206,14 +237,14 @@ while True:
     if current_hash != lasthash or live: #only process file if it has changed or live update is on
         lasthash = current_hash
         with open(edit_filepath, 'r') as file:
-            for l, line in enumerate(file):
+            for l, curLine in enumerate(file):
                 time = datetime.now() - starttime
 
-                line = line.replace('print', 'print_')
-                try: 
-                    exec(line.strip())
-                except Exception as e:
-                    ERROR(e, l)
+                curLine = curLine.replace('print', 'print_')
+                #try: 
+                exec(curLine.strip())
+                #except Exception as e:
+                #    ERROR(e, l)
 
             terminal[0] = 1 # terminal is ready to be printed
     if not live: sleep(.002)

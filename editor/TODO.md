@@ -1,11 +1,10 @@
 # Todo
 
 ### Todo
-
+ - [ ] splines
 ### In Progress
- - [ ] curves
-    - [ ] bezier 
-    - [ ] splines
+
+
 ### Completed
  - [x] rect
  - [x] text
@@ -14,3 +13,5 @@
  - [x] lines
  - [x] arcs
  - [x] polygon / path
+ - [x] curves
+    - [x] bezier 
