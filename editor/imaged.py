@@ -60,13 +60,87 @@ cThread.start()
 # session variables
 variables = {}
 
+def evaluate(expression):
+    for var in variables:
+        if var in expression:
+            expression = expression.replace(var, str(variables[var]))
+    return eval(expression)
+
+def scanline(start, line, l):
+    function = ''
+    for c, char in enumerate(line[start:]):
+        if   char == '#': #comments
+            break
+        elif char == '(': #functions 
+            if function in functions.keys(): #is a real function?
+                # get args
+                ai = c # arg index
+                accum = ''
+                args = []
+                inString = False
+                isString = False
+                while ai < len(line) - 1:
+                    ai += 1
+                    charInArg = line[ai]
+                    if ai == len(line): # endofline but no break? error. 
+                        ERROR("Unclosed parentheses", l)
+                        charInArg = line[ai - 1]
+                        if inString and not(charInArg == "'" or charInArg == '"'):
+                            ERROR("Unclosed string", l)
+                        return -1
+
+                    if charInArg == '"' or charInArg == "'": #hit start/end of string arg?
+                        inString = not inString #toggle
+                        isString = True
+                        continue #skip this char 
+
+                    elif charInArg == "," and not inString: #new arg
+                        if accum in variables.keys():
+                            accum = variables[accum]
+                        elif not isString:
+                            accum = evaluate(accum)
+                        args.append(accum) #append to list
+                        accum = '' #reset accum
+                        isString = False
+                        continue #skip this char
+
+                    accum += charInArg
+                if accum in variables.keys():
+                    accum = variables[accum]
+                elif not isString:
+                    accum = evaluate(accum)
+                args.append(accum)
+                # check to make sure the args given match expected
+                expected = functions[function]['args']
+                if len(args) != expected:
+                    ERROR(f'Function "{function}" expects {expected} arguments, got {len(args)} instead', l)
+                    return -1
+
+                functions[function]['function'](*args) #execute func and pass args
+                break
+            else:
+                ERROR(f"Unknown function {function}", l)
+                break
+        elif char == '=': #variables
+            value = line[c+2:].strip()
+            if value[0] == '"' or value[0] == "'":
+                if value[-1] != "'" and value[-1] != '"':
+                    ERROR(f"Unclosed string", l)
+                    return -1
+                
+                value = value[1:-1]
+            elif value.isnumeric():
+                value = float(value)
+            variables[function.strip()] = value
+            break
+        function += char
+
 lasthash = ''
 while True: 
     variables = {}
     terminal = [0]
 
     current_hash = get_file_hash(edit_filepath)
-
     # scan lines
     if current_hash != lasthash: #only process file if it has changed
         lasthash = current_hash
@@ -74,65 +148,6 @@ while True:
             # TODO: SPLIT INTO MULTIPLE FUNCTIONS
             for l, line in enumerate(file):
                 # scan through line
-                function = ''
-                for c, char in enumerate(line):
-                    if   char == '#': #comments
-                        break
-                    elif char == '(': #functions 
-                        if function in functions.keys(): #is a real function?
-                            # get args
-                            ai = c # arg index
-                            accum = ''
-                            args = []
-                            inString = False
-                            while line[ai + 1] != ')':
-                                ai += 1
-                                charInArg = line[ai]
-                                if ai == len(line) - 1: # endofline but no break? error. 
-                                    ERROR("Unclosed parentheses", l)
-                                    charInArg = line[ai - 1]
-                                    if inString and not(charInArg == "'" or charInArg == '"'):
-                                        ERROR("Unclosed string", l)
-                                    break
-
-                                if charInArg == '"' or charInArg == "'": #hit start/end of string arg?
-                                    inString = not inString #toggle
-                                    continue #skip this char 
-
-                                elif charInArg == "," and not inString: #new arg
-                                    if accum in variables.keys():
-                                        accum = variables[accum]
-                                    args.append(accum) #append to list
-                                    accum = '' #reset accum
-                                    continue #skip this char
-
-                                accum += charInArg
-                            if accum in variables.keys():
-                                accum = variables[accum]
-                            args.append(accum)
-                            # check to make sure the args given match expected
-                            expected = functions[function]['args']
-                            if len(args) != expected:
-                                ERROR(f'Function "{function}" expects {expected} arguments, got {len(args)} instead', l)
-                                break
-
-                            functions[function]['function'](*args) #execute func and pass args
-                            break
-                        else:
-                            ERROR(f"Unknown function {function}", l)
-                            break
-                    elif char == '=': #variables
-                        value = line[c+2:].strip()
-                        if value[0] == '"' or value[0] == "'":
-                            if value[-1] != "'" and value[-1] != '"':
-                                ERROR(f"Unclosed string", l)
-                                break
-                            value = value[1:-1]
-                        elif value.isnumeric():
-                            value = float(value)
-                        variables[function.strip()] = value
-                        #function[:-1]
-                        break
-                    function += char
+                scanline(0, line, l)
             terminal[0] = 1 # terminal is ready to be printed
     time.sleep(.01)
