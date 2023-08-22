@@ -1,14 +1,16 @@
 # Todo
 
 ### Todo
- - [ ] circles/ellipses
- - [ ] lines
+
+### In Progress
  - [ ] curves
     - [ ] bezier 
     - [ ] splines
-### In Progress
-
 ### Completed
  - [x] rect
  - [x] text
  - [x] alpha
+ - [x] circles/ellipses
+ - [x] lines
+ - [x] arcs
+ - [x] polygon / path

@@ -40,7 +40,7 @@ def curses_main(stdscr):
             for l, line in enumerate(terminal[1:]):
                 line = str(line)
                 if line[:5] == "Error":
-                    stdscr.addstr(l, 0, line, ERROR_COLOR)
+                    stdscr.addstr(l, 0, repr(line), ERROR_COLOR)
                 else:
                     stdscr.addstr(l, 0, line)
                 
@@ -117,15 +117,66 @@ def rectangle(x1, y1, x2, y2, color, thickness):
 def rect(x1, y1, x2, y2, color, thickness):
     rectangle(x1, y1, x2, y2, color, thickness)
 
+def line(x1, y1, x2, y2, color, thickness):
+    global IMAGE
+    if len(color) == 3:
+        cv2.line(IMAGE, (x1, y1), (x2, y2), color[:3], thickness)
+        return
+    copy = IMAGE.copy()
+    alpha = color[3]
+    cv2.line(copy, (x1, y1), (x2, y2), color[:3], thickness)
+    cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
+
+def polygon(points, color, thickness, closed = True):
+    global IMAGE
+    if len(color) == 3:
+        cv2.polylines(IMAGE, points, closed, color[:3], thickness)
+        return
+    copy = IMAGE.copy()
+    alpha = color[3]
+    cv2.polylines(IMAGE, points, closed, color[:3], thickness)
+    cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
+
+def path(points, color, thickness):
+    polygon(points, color, thickness, closed = False)
+
 def text(x, y, content, color, thickness, size, font = 0):
     global IMAGE
     if len(color) == 3:
         cv2.putText(IMAGE, content, (x, y), font, size, color[:3], thickness)
         return
     copy = IMAGE.copy()
-    alpha = 1 - color[3]
+    alpha = color[3]
     cv2.putText(IMAGE, content, (x, y), font, size, color[:3], thickness)
     cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
+
+def ellipse(x1, y1, x2, y2, color, thickness, rotation = 0, startAngle = 0, endAngle = 360):
+    global IMAGE
+    x =     int((x1 + x2) / 2)
+    y =     int((y1 + y2) / 2)
+    sizeX = int((x2 - x1) / 2)
+    sizeY = int((y2 - y1) / 2)
+
+    if len(color) == 3:
+        cv2.ellipse(IMAGE, (x, y), (sizeX, sizeY), rotation, startAngle, endAngle, color[:3], thickness)
+        return
+    copy = IMAGE.copy()
+    alpha = 1 - color[3]
+    cv2.ellipse(IMAGE, (x, y), (sizeX, sizeY), rotation, startAngle, endAngle, color[:3], thickness)
+    cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
+
+def circle(x, y, radius, color, thickness):
+    global IMAGE
+    if len(color) == 3:
+        cv2.circle(IMAGE, (x, y), radius, color[:3], thickness)
+        return
+    copy = IMAGE.copy()
+    alpha = color[3]
+    cv2.circle(IMAGE, (x, y), radius, color[:3], thickness)
+    cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
+
+def arc(x, y, radius, startAngle, endAngle, color, thickness):
+    ellipse(x - radius / 2, y - radius / 2, x + radius / 2, y + radius / 2, color, thickness, 0, startAngle, endAngle)
 
 edit_filepath = r'D:\Projects\Programming\Python Scripts\.image effects\imgfx\editor\test.ed'
 
