@@ -17,7 +17,7 @@ def print_(text):
     terminal.append(text)
 
 def ERROR(reason, line):
-    print_(f'Error: {reason} (Line {line})')  
+    print_(f'Error: {reason} (Line {line + 1})')  
 
 def curses_main(stdscr):
     global terminal
@@ -62,6 +62,7 @@ variables = {}
 
 lasthash = ''
 while True: 
+    variables = {}
     terminal = [0]
     # scan lines
    
@@ -98,12 +99,15 @@ while True:
                                     continue #skip this char 
 
                                 elif charInArg == "," and not inString: #new arg
+                                    if accum in variables.keys():
+                                        accum = variables[accum]
                                     args.append(accum) #append to list
                                     accum = '' #reset accum
                                     continue #skip this char
 
-                                
                                 accum += charInArg
+                            if accum in variables.keys():
+                                accum = variables[accum]
                             args.append(accum)
                             # check to make sure the args given match expected
                             expected = functions[function]['args']
@@ -117,7 +121,18 @@ while True:
                             ERROR(f"Unknown function {function}", l)
                             break
                     elif char == '=': #variables
-                        print_("test")
+                        value = line[c+2:].strip()
+                        if value[0] == '"' or value[0] == "'":
+                            if value[-1] != "'" and value[-1] != '"':
+                                ERROR(f"Unclosed string", l)
+                                break
+                            value = value[1:-1]
+                        elif value.isnumeric():
+                            value = float(value)
+                        variables[function.strip()] = value
+                        print_(variables)
+                        #function[:-1]
+                        break
                     function += char
             terminal[0] = 1 # terminal is ready to be printed
     time.sleep(.01)

@@ -1,3 +1,9 @@
+spaces in my variables = 2
+v = 120
+print(v)
 print("test") # Hello world!
+# this is a comment
 print("hi")
-foo = 0
+foo again = 0
+bar = "test"
+ex = 1000.00
