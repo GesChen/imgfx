@@ -1,13 +1,14 @@
 # Todo
 
 ### Todo
- - [ ] loops
- - [ ] conditionals
+ - [ ] circles/ellipses
+ - [ ] lines
+ - [ ] curves
+    - [ ] bezier 
+    - [ ] splines
 ### In Progress
- - [ ] operations/math (expressions)
- - [ ] refactor loop to step through line by function instead of stepping within sub 
+
 ### Completed
- - [x] comments
- - [x] basic functions
- - [x] variables
- - [x] printing / custom terminal
+ - [x] rect
+ - [x] text
+ - [x] alpha
