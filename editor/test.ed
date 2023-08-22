@@ -1,6 +1,7 @@
 spaces in my variables = 2
+space = 5
 v = 120
-print(v)
+print(0)
 print("test") # Hello world!
 # this is a comment
 print("hi")

@@ -6,7 +6,7 @@ import threading
 import hashlib
 import time
 
-# no guides, full naive method ahead... watch out, bad code ahead!
+# no guides, full naive method... watch out, bad code ahead!
 
 def get_file_hash(file_path):
     with open(file_path, 'rb') as file:
@@ -64,9 +64,10 @@ lasthash = ''
 while True: 
     variables = {}
     terminal = [0]
-    # scan lines
-   
+
     current_hash = get_file_hash(edit_filepath)
+
+    # scan lines
     if current_hash != lasthash: #only process file if it has changed
         lasthash = current_hash
         with open(edit_filepath, 'r') as file:
@@ -130,7 +131,6 @@ while True:
                         elif value.isnumeric():
                             value = float(value)
                         variables[function.strip()] = value
-                        print_(variables)
                         #function[:-1]
                         break
                     function += char
