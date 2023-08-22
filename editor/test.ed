@@ -1,1 +1,3 @@
 print("test") # Hello world!
+print("hi")
+foo = 0
