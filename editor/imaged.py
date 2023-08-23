@@ -7,6 +7,7 @@ import hashlib
 from time import sleep
 from datetime import datetime
 from screeninfo import get_monitors
+import pygame
 
 ## supporting functions
 def is_path(string):
@@ -40,10 +41,13 @@ def curses_main(stdscr):
 
             for l, line in enumerate(terminal[1:]):
                 line = str(line)
-                if line[:5] == "Error":
-                    stdscr.addstr(l, 0, repr(line), ERROR_COLOR)
-                else:
-                    stdscr.addstr(l, 0, line)
+                try:
+                    if line[:5] == "Error":
+                        stdscr.addstr(l, 0, repr(line).strip("'"), ERROR_COLOR)
+                    else:
+                        stdscr.addstr(l, 0, repr(line).strip("'"))
+                except:
+                    pass
                 
             stdscr.refresh()
             terminal[0] = 0
@@ -51,7 +55,7 @@ def curses_main(stdscr):
 def curses_thread():
     curses.wrapper(curses_main) # type: ignore (random bug not sure why happens)
 
-def preview_thread():
+def preview_thread_old():
     while True:
         if IMAGE.shape[0] != 0:
             dimensions = IMAGE.shape[:2][::-1]
@@ -59,6 +63,55 @@ def preview_thread():
             resized = cv2.resize(IMAGE, (int(dimensions[0] / factor), int(dimensions[1] / factor)))
             cv2.imshow("Image", cv2.cvtColor(resized, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
+
+def pygame_thread():
+    pygame.init()
+    clock = pygame.time.Clock()
+    pygame.mouse.set_cursor(*pygame.cursors.tri_left)
+    lastScreen = None
+    while True:
+        clock.tick(60)
+        events = pygame.event.get()
+
+        check_for_resize(lastScreen)
+        screen = update_screen(lastScreen)
+        
+        lastScreen = screen
+        
+def update_screen(lastScreen):
+    global update
+    if IMAGE.shape[0] != 0 and update == True:
+        dimensions = IMAGE.shape[:2][::-1]
+        factor = dimensions[0] / window_size
+        resized = cv2.resize(IMAGE, (int(dimensions[0] / factor), int(dimensions[1] / factor)))
+
+        screen = pygame.display.set_mode(resized.shape[1::-1], pygame.RESIZABLE | pygame.HWSURFACE)
+        pyimage = pygame.image.frombuffer(resized.tobytes(), resized.shape[1::-1], "RGB")
+        screen.blit(pyimage, (0,0))
+
+        pygame.display.flip()
+        update = False
+
+        return screen
+    return lastScreen
+
+last_width = 0
+def check_for_resize(screen): 
+    if screen is None:
+        return
+
+    global last_width
+    global window_size
+    global update
+
+    width, _ = screen.get_size()
+    print_(width)
+    if width != last_width:
+        print_("updating size")
+        window_size = width
+        update = True
+        print_("updating")
+    last_width = width
 
 ## editing debug 
 def edit(path):
@@ -218,9 +271,9 @@ terminal = [0]
 cThread = threading.Thread(target=curses_thread, name="Curses")
 cThread.start()
 
-# another thread for image preview
-pThread = threading.Thread(target=preview_thread, name="Preview")
-pThread.start()
+# another thread for interaction/preview
+iThread = threading.Thread(target=pygame_thread, name="Interaction")
+iThread.start()
 
 # session variables
 time = 0
@@ -231,6 +284,7 @@ for m in get_monitors():
     full_width = min(full_width, m.width)
 window_size = 1000
 
+update = False
 starttime = datetime.now()
 lasthash = ''
 while True: 
@@ -252,4 +306,5 @@ while True:
                     ERROR(e, l)
 
             terminal[0] = 1 # terminal is ready to be printed
+            update = True   # image is ready to be drawn
     if not live: sleep(.002)
