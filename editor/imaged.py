@@ -6,6 +6,7 @@ import threading
 import hashlib
 from time import sleep
 from datetime import datetime
+from screeninfo import get_monitors
 
 ## supporting functions
 def is_path(string):
@@ -54,7 +55,7 @@ def preview_thread():
     while True:
         if IMAGE.shape[0] != 0:
             dimensions = IMAGE.shape[:2][::-1]
-            factor = dimensions[0] / 1000
+            factor = dimensions[0] / window_size
             resized = cv2.resize(IMAGE, (int(dimensions[0] / factor), int(dimensions[1] / factor)))
             cv2.imshow("Image", cv2.cvtColor(resized, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
@@ -179,7 +180,7 @@ def circle(x, y, radius, color, thickness):
     cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
 
 def arc(x, y, radius, startAngle, endAngle, color, thickness):
-    ellipse(x - radius / 2, y - radius / 2, x + radius / 2, y + radius / 2, color, thickness, 0, startAngle, endAngle)
+    ellipse(x - radius, y - radius, x + radius, y + radius, color, thickness, 0, startAngle, endAngle)
 
 def cubic_bezier(points, t):
     p = points
@@ -225,6 +226,10 @@ pThread.start()
 time = 0
 IMAGE = np.array([])
 live = False
+full_width = 10000000
+for m in get_monitors():
+    full_width = min(full_width, m.width)
+window_size = 1000
 
 starttime = datetime.now()
 lasthash = ''
@@ -241,10 +246,10 @@ while True:
                 time = datetime.now() - starttime
 
                 curLine = curLine.replace('print', 'print_')
-                #try: 
-                exec(curLine.strip())
-                #except Exception as e:
-                #    ERROR(e, l)
+                try: 
+                    exec(curLine.strip())
+                except Exception as e:
+                    ERROR(e, l)
 
             terminal[0] = 1 # terminal is ready to be printed
     if not live: sleep(.002)
