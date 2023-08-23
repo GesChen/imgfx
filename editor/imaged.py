@@ -7,7 +7,6 @@ import hashlib
 from time import sleep
 from datetime import datetime
 from screeninfo import get_monitors
-import pyglet
 
 ## supporting functions
 def is_path(string):
@@ -41,13 +40,10 @@ def curses_main(stdscr):
 
             for l, line in enumerate(terminal[1:]):
                 line = str(line)
-                try:
-                    if line[:5] == "Error":
-                        stdscr.addstr(l, 0, repr(line).strip("'"), ERROR_COLOR)
-                    else:
-                        stdscr.addstr(l, 0, repr(line).strip("'"))
-                except:
-                    pass
+                if line[:5] == "Error":
+                    stdscr.addstr(l, 0, repr(line), ERROR_COLOR)
+                else:
+                    stdscr.addstr(l, 0, line)
                 
             stdscr.refresh()
             terminal[0] = 0
@@ -55,7 +51,7 @@ def curses_main(stdscr):
 def curses_thread():
     curses.wrapper(curses_main) # type: ignore (random bug not sure why happens)
 
-def preview_thread_old():
+def preview_thread():
     while True:
         if IMAGE.shape[0] != 0:
             dimensions = IMAGE.shape[:2][::-1]
@@ -216,7 +212,17 @@ def bezier(x1, y1, x2, y2, x3, y3, x4, y4, color, thickness, samples = 20):
 
 edit_filepath = r'D:\Projects\Programming\Python Scripts\.image effects\imgfx\editor\test.ed'
 
-#  session variables
+terminal = [0]
+
+# seperate thread for terminal output
+cThread = threading.Thread(target=curses_thread, name="Curses")
+cThread.start()
+
+# another thread for image preview
+pThread = threading.Thread(target=preview_thread, name="Preview")
+pThread.start()
+
+# session variables
 time = 0
 IMAGE = np.array([])
 live = False
@@ -226,7 +232,6 @@ for m in get_monitors():
 window_size = 1000
 terminal = [0]
 
-update = False
 starttime = datetime.now()
 lasthash = ''
 def process_file():
@@ -252,53 +257,4 @@ def process_file():
                     ERROR(e, l)
 
             terminal[0] = 1 # terminal is ready to be printed
-            update = True   # image is ready to be drawn
     if not live: sleep(.002)
-
-# seperate thread for terminal output
-cThread = threading.Thread(target=curses_thread, name="Curses")
-cThread.start()
-
-# update thread
-
-## pyglet 
-
-def cv2topyglet(image):
-    pyglet_image_data = image[::-1].tobytes()
-    width, height = image.shape[1], image.shape[0]
-    pyglet_image = pyglet.image.ImageData(width, height, 'RGB', pyglet_image_data)
-    
-    return pyglet_image
-
-window = pyglet.window.Window(1920, 1080, "Editor")
-
-#@window.event
-def update_loop():
-    while True:
-        on_draw()
-
-def on_draw():
-    process_file()
-    update_screen()
-
-def update_screen():
-    global update
-    global window
-
-    if IMAGE.shape[0] != 0 and update == True:
-        print_("updating")
-        window.clear()
-        dimensions = IMAGE.shape[:2][::-1]
-        factor = dimensions[0] / window_size
-        resized = cv2.resize(IMAGE, (int(dimensions[0] / factor), int(dimensions[1] / factor)))
-
-        pygletImg = cv2topyglet(resized)
-
-        pygletImg.blit(0,0)
-
-        update = False
-
-uThread = threading.Thread(target=update_loop)
-uThread.start()
-
-pyglet.app.run()
