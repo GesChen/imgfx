@@ -11,12 +11,13 @@
 ### In Progress
 
  - [ ] ui / interaction
-   - [ ] pygame window
+   - [x] pygame window
       - [x] proper rescaling
-      - [ ] tab for tools and stuff
+      - [x] automatic fullscreening
    - [ ] image navigation
        - [ ] panning
        - [ ] zooming
+    - [ ] tab for tools and stuff
 
 
 ### Completed

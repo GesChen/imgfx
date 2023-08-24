@@ -1,13 +1,18 @@
 import cv2
 import numpy as np
 import os
-import curses
+import sys
+import win32gui, win32con
 import threading
-import hashlib
+
+import pygame
+import curses
+
+from screeninfo import get_monitors
+from hashlib import md5
 from time import sleep
 from datetime import datetime
-from screeninfo import get_monitors
-import pygame
+
 
 ## supporting functions
 def is_path(string):
@@ -15,7 +20,7 @@ def is_path(string):
 
 def get_file_hash(file_path):
     with open(file_path, 'rb') as file:
-        return hashlib.md5(file.read()).hexdigest()
+        return md5(file.read()).hexdigest()
 
 ## display
 def print_(text):
@@ -35,7 +40,7 @@ def curses_main(stdscr):
     curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK) #type:ignore
     ERROR_COLOR = curses.color_pair(1)                        #type:ignore
 
-    while True:
+    while running:
         if terminal[0] == 1:
             stdscr.erase()
 
@@ -64,12 +69,19 @@ def preview_thread_old():
             cv2.imshow("Image", cv2.cvtColor(resized, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
 
+def maximise_window(window_title):
+    hwnd = win32gui.FindWindowEx(None, None, None, window_title)
+    if hwnd != 0:
+        win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
+
+
 def pygame_thread():
     pygame.init()
     clock = pygame.time.Clock()
-    pygame.mouse.set_cursor(*pygame.cursors.tri_left)
+    pygame.display.set_caption("Editor")
+
     lastScreen = None
-    while True:
+    while running:
         clock.tick(60)
         events = pygame.event.get()
 
@@ -78,9 +90,21 @@ def pygame_thread():
 
         lastScreen = screen
 
+        handle_events(events)
+    
+    # exit
+    pygame.display.quit()
+    pygame.quit()
+    sys.exit()
+
 def update_screen(lastScreen):
     global update
+    global frame
+    global update_frame
+
+    frame += 1
     if IMAGE.shape[0] != 0 and update == True:
+        update_frame += 1
         dimensions = IMAGE.shape[:2][::-1]
         factor = dimensions[0] / window_size
         resized = cv2.resize(IMAGE, (int(dimensions[0] / factor), int(dimensions[1] / factor)))
@@ -88,9 +112,12 @@ def update_screen(lastScreen):
         screen = pygame.display.set_mode(resized.shape[1::-1], pygame.RESIZABLE | pygame.HWSURFACE)
         pyimage = pygame.image.frombuffer(resized.tobytes(), resized.shape[1::-1], "RGB")
         screen.blit(pyimage, (0,0))
-
+        
         pygame.display.flip()
         update = False
+        
+        if update_frame == 1:
+            maximise_window("Editor")
 
         return screen
     return lastScreen
@@ -112,6 +139,12 @@ def check_for_resize(screen):
         update = True
         print_("updating")
     last_width = width
+
+def handle_events(events):
+    for event in events:
+        if event.type == pygame.QUIT:
+            global running
+            running = False
 
 ## editing debug
 def edit(path):
@@ -265,7 +298,18 @@ def bezier(x1, y1, x2, y2, x3, y3, x4, y4, color, thickness, samples = 20):
 
 edit_filepath = r'D:\Projects\Programming\Python Scripts\.image effects\imgfx\editor\test.ed'
 
+# session variables
 terminal = [0]
+time = 0
+frame = 0
+update_frame = 0
+IMAGE = np.array([])
+live = False
+full_width = 10000000
+for m in get_monitors():
+    full_width = min(full_width, m.width)
+window_size = 1000
+running = True
 
 # seperate thread for terminal output
 cThread = threading.Thread(target=curses_thread, name="Curses")
@@ -275,19 +319,11 @@ cThread.start()
 iThread = threading.Thread(target=pygame_thread, name="Interaction")
 iThread.start()
 
-# session variables
-time = 0
-IMAGE = np.array([])
-live = False
-full_width = 10000000
-for m in get_monitors():
-    full_width = min(full_width, m.width)
-window_size = 1000
 
 update = False
 starttime = datetime.now()
 lasthash = ''
-while True:
+while running:
     variables = {}
     terminal = [0]
 
