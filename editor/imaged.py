@@ -5,7 +5,7 @@ import sys
 import win32gui, win32con
 import threading
 
-import pygame
+import pygame as pyg
 import curses
 
 from screeninfo import get_monitors
@@ -21,6 +21,15 @@ def is_path(string):
 def get_file_hash(file_path):
     with open(file_path, 'rb') as file:
         return md5(file.read()).hexdigest()
+
+def list_diff(original, list):
+    different_items = []
+    for i in range(max(len(original), len(list))):
+        if i >= len(original) or i >= len(list):
+            different_items.append(i)
+        elif original[i] != list[i]:
+            different_items.append(i)
+    return different_items    
 
 ## display
 def print_(text):
@@ -74,27 +83,34 @@ def maximise_window(window_title):
     if hwnd != 0:
         win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
 
-
 def pygame_thread():
-    pygame.init()
-    clock = pygame.time.Clock()
-    pygame.display.set_caption("Editor")
+    pyg.init()
+    clock = pyg.time.Clock()
+    pyg.display.set_caption("Editor")
 
+    # main interaction loop
     lastScreen = None
     while running:
-        clock.tick(60)
-        events = pygame.event.get()
-
         check_for_resize(lastScreen)
-        screen = update_screen(lastScreen)
 
+        screen     = update_screen(lastScreen)
         lastScreen = screen
 
+        events = pyg.event.get()
         handle_events(events)
-    
+
+        keys = pyg.key.get_pressed()
+        mods = pyg.key.get_mods()
+        handle_keys(keys, mods)
+        
+        mPos = pyg.mouse.get_pos()
+        handle_mouse(mPos, mButtons, mScroll)
+
+        clock.tick(24)
+
     # exit
-    pygame.display.quit()
-    pygame.quit()
+    pyg.display.quit()
+    pyg.quit()
     sys.exit()
 
 def update_screen(lastScreen):
@@ -103,17 +119,19 @@ def update_screen(lastScreen):
     global update_frame
 
     frame += 1
+    update = True
     if IMAGE.shape[0] != 0 and update == True:
         update_frame += 1
         dimensions = IMAGE.shape[:2][::-1]
-        factor = dimensions[0] / window_size
+        factor = dimensions[0] / zoom
         resized = cv2.resize(IMAGE, (int(dimensions[0] / factor), int(dimensions[1] / factor)))
 
-        screen = pygame.display.set_mode(resized.shape[1::-1], pygame.RESIZABLE | pygame.HWSURFACE)
-        pyimage = pygame.image.frombuffer(resized.tobytes(), resized.shape[1::-1], "RGB")
+        #screen = pyg.display.set_mode(resized.shape[1::-1], pyg.RESIZABLE | pyg.HWSURFACE)
+        screen = pyg.display.set_mode(flags=pyg.RESIZABLE | pyg.HWSURFACE)
+        pyimage = pyg.image.frombuffer(resized.tobytes(), resized.shape[1::-1], "RGB")
         screen.blit(pyimage, (0,0))
         
-        pygame.display.flip()
+        pyg.display.flip()
         update = False
         
         if update_frame == 1:
@@ -132,19 +150,41 @@ def check_for_resize(screen):
     global update
 
     width, _ = screen.get_size()
-    print_(width)
+
     if width != last_width:
-        print_("updating size")
         window_size = width
         update = True
-        print_("updating")
     last_width = width
 
 def handle_events(events):
     for event in events:
-        if event.type == pygame.QUIT:
-            global running
+        if event.type == pyg.QUIT:
+            global running  
             running = False
+        elif event.type == pyg.MOUSEBUTTONDOWN:
+            mButtons[event.button - 1] = True
+            print_(event.button)
+            if event.button == 4:
+                global zoom
+                zoom += .1
+        elif event.type == pyg.MOUSEBUTTONUP:
+            mButtons[event.button - 1] = False
+
+def handle_keys(keys, mods):
+    for kb in keybinds:
+        pressed = all( #are all the mods and keys in this keybind pressed?
+            [mods & mod for mod in kb['mods']] + 
+            [keys[key]  for key in kb['keys']])
+        
+        if pressed: #if pressed, execute the keybind
+            kb['action']()
+
+def handle_mouse(pos, buttons, scroll):
+    global zoom
+    if mButtons[4]:
+        zoom += 1
+    elif mButtons[5]:
+        zoom -= 1
 
 ## editing debug
 def edit(path):
@@ -293,23 +333,45 @@ def bezier(x1, y1, x2, y2, x3, y3, x4, y4, color, thickness, samples = 20):
 
     path(points, color, thickness)
 
-
+# keybinds
+def undo():
+    return
 
 
 edit_filepath = r'D:\Projects\Programming\Python Scripts\.image effects\imgfx\editor\test.ed'
+
+keybinds = [
+    {'mods':[pyg.KMOD_CTRL], 'keys':[pyg.K_z], 'action':undo}
+]
 
 # session variables
 terminal = [0]
 time = 0
 frame = 0
 update_frame = 0
+
+#display and image
 IMAGE = np.array([])
-live = False
+window_size = 1000
 full_width = 10000000
 for m in get_monitors():
     full_width = min(full_width, m.width)
-window_size = 1000
+
+zoom = 1000
+
+#settings
+live = False
 running = True
+
+#undoing
+max_undos = 10
+history = []
+this_file = []
+last_file = []
+with open(edit_filepath, 'r') as file: #initial population of list
+    for l in file: 
+        this_file.append(l)
+        last_file.append(l)
 
 # seperate thread for terminal output
 cThread = threading.Thread(target=curses_thread, name="Curses")
@@ -318,7 +380,10 @@ cThread.start()
 # another thread for interaction/preview
 iThread = threading.Thread(target=pygame_thread, name="Interaction")
 iThread.start()
-
+# mouse info
+mPos     = (0, 0)
+mButtons = [False] * 15
+mScroll  = (0, 0)
 
 update = False
 starttime = datetime.now()
@@ -332,7 +397,9 @@ while running:
     if current_hash != lasthash or live: #only process file if it has changed or live update is on
         lasthash = current_hash
         with open(edit_filepath, 'r') as file:
+            this_file = []
             for l, curLine in enumerate(file):
+                this_file.append(curLine)
                 time = datetime.now() - starttime
 
                 curLine = curLine.replace('print', 'print_')
@@ -341,6 +408,19 @@ while running:
                 except Exception as e:
                     ERROR(e, l)
 
+            # check for changes and save found
+            differences = list_diff(last_file, this_file)
+            changes = []
+            for diff in differences:
+                if diff < len(last_file):
+                    changes.append({'change':last_file[diff], 'line':diff})
+                else: #out of range from deleted line
+                    changes.append({'change':"DEL", 'line':diff})
+            if len(history) >= max_undos: #limit how many items are in history list for memory purposes
+                del history[0]
+            if len(changes) > 0: #prevents blank change lists taking up space
+                history.append(changes)
+            print_(mButtons)
             terminal[0] = 1 # terminal is ready to be printed
             update = True   # image is ready to be drawn
     if not live: sleep(.002)

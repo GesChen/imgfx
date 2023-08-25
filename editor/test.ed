@@ -1,4 +1,6 @@
 edit("D:\Projects\Programming\Python Scripts\.image effects\imgfx\editor\int.png")
+#live = 1
+
 dim()
 text(30, 200, "Hello world!", (250, 250, 200, .5), 5, 5)
 rect(10, 10, 1000, 1000, (255, 30, 30, .9), 15)
@@ -13,6 +15,7 @@ ellipse(2000, 1350, 2900, 1500, (0, 0, 0), 25)
 window_size = 1000
 
 text(1000, 1000, "Beans!!", (250, 50, 50), 10, 15)
+
 
 circle(500, 500, 250, (20, 20, 250), 5)
 arc(500, 500, 250, -20, 100, (0, 250, 50), 15)
