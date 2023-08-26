@@ -37,7 +37,7 @@ color: the color of the object, in `(R, G, B)` format
     - `7` : `FONT_HERSHEY_SCRIPT_COMPLEX` - more complex variant of FONT_HERSHEY_SCRIPT_SIMPLEX
     - `16` : `FONT_ITALIC`                - flag for italic font (usage: add `& 16` after normal font)
  - `ellipse(x1, y1, x2, y2, color, thickness, rotation = 0, startAngle = 0, endAngle = 360)`  
- draws an eclipse from `(x1, y1)` to `(x2, y2)` with rotation `rotation`, clipped to make an elliptic arc by specifying `startAngle` and `endAngle`  
+ draws an ellipse from `(x1, y1)` to `(x2, y2)` with rotation `rotation`, clipped to make an elliptical arc by specifying `startAngle` and `endAngle`  
  - `circle(x, y, radius, color, thickness)`  
  draws a circle at `(x, y)` with radius `radius`  
  - `arc(x, y, radius, startAngle, endAngle, color, thickness)`  
