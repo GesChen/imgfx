@@ -1,5 +1,5 @@
 # image editor 
-uses python to load and manipulate images like traditional image editors, running the main "gui" should give you a live preview of the resulting image. 
+uses python to load and manipulate images like traditional image editors, running the main "gui"`` should give you a live preview of the resulting image. 
 
 .ed files for "edit", basically python but "live"
 
@@ -19,8 +19,8 @@ uses python to load and manipulate images like traditional image editors, runnin
  loops for n times, with x as counter. 
 
 ### drawing functions
-thickness: use a positive number for actual thickness, -1 for filled in  
-color: the color of the object, in `(R, G, B)` format  
+`thickness`: positive number for thickness, -1 for fill  
+`color`: the color of the object, in `(R, G, B)` format (0 - 255) 
  - `rectangle/rect(x1, y1, x2, y2, color, thickness)`  
  draws a rectangle from `(x1, y1)` to `(x2, y2)`  
  - `line(x1, y1, x2, y2, color, thickness)`  
