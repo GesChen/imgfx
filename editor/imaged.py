@@ -1,18 +1,19 @@
 import cv2
 import numpy as np
+import scipy as sp
 import os
 import sys
 import win32gui, win32con
 import threading
+import time
 
-import pygame
+import pygame as pyg
 import curses
 
 from screeninfo import get_monitors
 from hashlib import md5
 from time import sleep
 from datetime import datetime
-
 
 ## supporting functions
 def is_path(string):
@@ -35,27 +36,40 @@ def ERROR(reason, line):
 
 def curses_main(stdscr):
     global terminal
+    global file
     stdscr.clear()
 
     curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK) #type:ignore
     ERROR_COLOR = curses.color_pair(1)                        #type:ignore
 
     while running:
+        if lineNo < len(list(file)):
+            barlength = 20
+            
+            progress = lineNo / len(list(file))
+            chars = round(progress * barlength)
+            progressText = f"Processing: [{'='*chars}{'-'*(barlength - chars)}] {progress:.2f}%"
+
+            stdscr.addstr(0, 0, progressText)
+
         if terminal[0] == 1:
-            stdscr.erase()
+            stdscr.clear()
+            stdscr.addstr(0, 0, f"Finished processing, took {(time.time() - startTime):.2f} seconds.")
+            stdscr.refresh()
 
             for l, line in enumerate(terminal[1:]):
                 line = str(line)
                 try:
                     if line[:5] == "Error":
-                        stdscr.addstr(l, 0, repr(line).strip("'"), ERROR_COLOR)
+                        stdscr.addstr(l + 1, 0, repr(line).strip("'"), ERROR_COLOR)
                     else:
-                        stdscr.addstr(l, 0, repr(line).strip("'"))
+                        stdscr.addstr(l + 1, 0, repr(line).strip("'"))
                 except:
                     pass
-
-            stdscr.refresh()
+            
+            
             terminal[0] = 0
+        stdscr.refresh()
 
 def curses_thread():
     curses.wrapper(curses_main) # type: ignore (random bug not sure why happens)
@@ -74,16 +88,15 @@ def maximise_window(window_title):
     if hwnd != 0:
         win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
 
-
-def pygame_thread():
-    pygame.init()
-    clock = pygame.time.Clock()
-    pygame.display.set_caption("Editor")
+def pyg_thread():
+    pyg.init()
+    clock = pyg.time.Clock()
+    pyg.display.set_caption("Editor")
 
     lastScreen = None
     while running:
         clock.tick(60)
-        events = pygame.event.get()
+        events = pyg.event.get()
 
         check_for_resize(lastScreen)
         screen = update_screen(lastScreen)
@@ -93,8 +106,8 @@ def pygame_thread():
         handle_events(events)
     
     # exit
-    pygame.display.quit()
-    pygame.quit()
+    pyg.display.quit()
+    pyg.quit()
     sys.exit()
 
 def update_screen(lastScreen):
@@ -106,14 +119,15 @@ def update_screen(lastScreen):
     if IMAGE.shape[0] != 0 and update == True:
         update_frame += 1
         dimensions = IMAGE.shape[:2][::-1]
-        factor = dimensions[0] / window_size
+        factor = dimensions[0] / pyg.display.Info().current_w
         resized = cv2.resize(IMAGE, (int(dimensions[0] / factor), int(dimensions[1] / factor)))
 
-        screen = pygame.display.set_mode(resized.shape[1::-1], pygame.RESIZABLE | pygame.HWSURFACE)
-        pyimage = pygame.image.frombuffer(resized.tobytes(), resized.shape[1::-1], "RGB")
+        screen = pyg.display.set_mode(resized.shape[1::-1], pyg.RESIZABLE | pyg.HWSURFACE)
+        pyimage = pyg.image.frombuffer(resized.tobytes(), resized.shape[1::-1], "RGB")
         screen.blit(pyimage, (0,0))
         
-        pygame.display.flip()
+        
+        pyg.display.flip()
         update = False
         
         if update_frame == 1:
@@ -122,27 +136,24 @@ def update_screen(lastScreen):
         return screen
     return lastScreen
 
-last_width = 0
+last_res = 0
 def check_for_resize(screen):
     if screen is None:
         return
 
-    global last_width
+    global last_res
     global window_size
     global update
 
-    width, _ = screen.get_size()
-    print_(width)
-    if width != last_width:
-        print_("updating size")
-        window_size = width
+    res = screen.get_size()
+    if res != last_res:
+        window_size = res[0]
         update = True
-        print_("updating")
-    last_width = width
+    last_res = res
 
 def handle_events(events):
     for event in events:
-        if event.type == pygame.QUIT:
+        if event.type == pyg.QUIT:
             global running
             running = False
 
@@ -153,6 +164,40 @@ def edit(path):
 
 def dim():
     print_(IMAGE.shape[:2][::-1])
+
+def save(path):
+    if is_path(path):
+        trysave(path)
+    else:
+        try: 
+            path = os.path.join(os.getcwd(), path)
+            trysave(path)
+        except:
+            print_("Unable to save. Path is not valid, or other error occured.")
+
+def trysave(path):
+    if os.path.isfile(path):
+        print_("Found image found with same name. Generating new file name.")
+    
+    path = generate_unique_filename(path)
+
+    cv2.imwrite(path, cv2.cvtColor(IMAGE, cv2.COLOR_BGR2RGB))
+    print_("Saved image at " + path)
+
+def generate_unique_filename(base_path):
+    if not os.path.exists(base_path):
+        return base_path
+
+    directory, filename = os.path.split(base_path)
+    filename_without_extension, file_extension = os.path.splitext(filename)
+
+    counter = 1
+    while True:
+        new_filename = f"{filename_without_extension}_{counter}{file_extension}"
+        new_path = os.path.join(directory, new_filename)
+        if not os.path.exists(new_path):
+            return new_path
+        counter += 1
 
 ## color and math functions
 def mapRange(value, from_min, from_max, to_min, to_max):
@@ -293,14 +338,35 @@ def bezier(x1, y1, x2, y2, x3, y3, x4, y4, color, thickness, samples = 20):
 
     path(points, color, thickness)
 
+def convolute(kernel):
+    global IMAGE
+    
+    kernel = np.flip(np.array(kernel))
+    # Initialize an empty output image of the same shape as the input
+    output_image = np.zeros_like(IMAGE)
+
+    # Perform convolution for each color channel
+    for channel in range(IMAGE.shape[2]):
+        output_image[:, :, channel] = sp.signal.convolve2d(IMAGE[:, :, channel], kernel, mode='same', boundary='wrap')
+
+    # Ensure values are in the valid range (0-255 for uint8 images)
+    output_image = np.clip(output_image, 0, 255).astype(np.uint8)
+
+    IMAGE = output_image
 
 
 
-edit_filepath = r'D:\Projects\Programming\Python Scripts\.image effects\imgfx\editor\test.ed'
+if len(sys.argv) != 2:
+    print("Usage: py imaged.py <edit file>")
+    sys.exit(1)
+else:
+    edit_filepath = sys.argv[1]
 
 # session variables
+file = ""
 terminal = [0]
-time = 0
+timeElapsed = 0
+startTime = 0
 frame = 0
 update_frame = 0
 IMAGE = np.array([])
@@ -310,15 +376,16 @@ for m in get_monitors():
     full_width = min(full_width, m.width)
 window_size = 1000
 running = True
+lineNo = 0
+
+# another thread for interaction/preview
+iThread = threading.Thread(target=pyg_thread, name="Interaction")
 
 # seperate thread for terminal output
 cThread = threading.Thread(target=curses_thread, name="Curses")
-cThread.start()
 
-# another thread for interaction/preview
-iThread = threading.Thread(target=pygame_thread, name="Interaction")
 iThread.start()
-
+cThread.start()
 
 update = False
 starttime = datetime.now()
@@ -332,14 +399,44 @@ while running:
     if current_hash != lasthash or live: #only process file if it has changed or live update is on
         lasthash = current_hash
         with open(edit_filepath, 'r') as file:
-            for l, curLine in enumerate(file):
-                time = datetime.now() - starttime
-
+            startTime = time.time()
+            file = list(file)
+            timeElapsed = datetime.now() - starttime
+            l = 0
+            while l < len(file):
+                curLine = file[l]
+                if curLine[0].isspace():
+                    curLine.lstrip()
+                    curLine = '\t' + curLine
                 curLine = curLine.replace('print', 'print_')
+                curLine = curLine.replace('time', 'timeElapsed')
+                curLine = curLine.rstrip()
+                
+                if l + 1 < len(file):
+                    if file[l + 1][0].isspace() and not file[l + 1].isspace():
+                        curLine += '\n'
+                        l += 1
+                        while file[l][0].isspace():
+                            thisLine = file[l]
+
+                            if thisLine[0].isspace():
+                                thisLine = thisLine.lstrip()
+                                thisLine = '\t' + thisLine
+                            thisLine = thisLine.replace('print', 'print_')
+                            thisLine = thisLine.replace('time', 'timeElapsed')
+                            curLine += thisLine
+
+                            l += 1
+                            if l == len(file):
+                                break
+
                 try:
                     exec(curLine.strip())
                 except Exception as e:
                     ERROR(e, l)
+                l += 1
+
+                lineNo = l
 
             terminal[0] = 1 # terminal is ready to be printed
             update = True   # image is ready to be drawn

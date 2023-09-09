@@ -1,18 +1,22 @@
 # image editor 
 uses python to load and manipulate images like traditional image editors, running the main "gui" should give you a live preview of the resulting image. 
 
-.ed files for "edit", basically python syntax
+.ed files for "edit", basically python but "live"
 
+---
 
 ## functions
 
- - `edit(image file path)`
- loads an image from `image file path` (if valid) to edit 
+ - `edit(input image path)`
+ loads an image from `input image path` (if valid) to edit 
+ - `save(output image path)`
+ saves the edited image to `output image path`
  - `print(text)`
  prints `text` to console
  - `dim()`
  prints the dimensions of the image to console
-
+ - `for x in range(n):` 
+ loops for n times, with x as counter. 
 
 ### drawing functions
 thickness: use a positive number for actual thickness, -1 for filled in  

@@ -1,24 +1,16 @@
 # Todo
 
 ### Todo
- - [ ] splines
+ - [ ] splines / composite bezier
  - [ ] filters / kernels
 
-   - [ ] toolbar
-   - [ ] draw, drag and click (mouse interaction)
-   - [ ] edit file updating
+ - [ ] toolbar
+ - [ ] draw, drag and click (mouse interaction)
+ - [ ] edit file updating
 
 ### In Progress
 
- - [ ] ui / interaction
-   - [x] pygame window
-      - [x] proper rescaling
-      - [x] automatic fullscreening
-   - [ ] image navigation
-       - [ ] panning
-       - [ ] zooming
-    - [ ] tab for tools and stuff
-
+ - [ ] for loops and things with indents work
 
 ### Completed
 
@@ -31,3 +23,7 @@
  - [x] polygon / path
  - [x] curves
     - [x] bezier
+ - [x] ui / interaction #
+   - [x] pygame window
+      - [x] proper rescaling
+      - [x] automatic fullscreening
