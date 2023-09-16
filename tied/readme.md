@@ -50,5 +50,7 @@ uses python to load and manipulate images like traditional image editors, runnin
  draws an arc at `(x, y)` from `startAngle` to `endAngle`  
  - `bezier(x1, y1, x2, y2, x3, y3, x4, y4, color, thickness, samples = 20)`  
  draws a bezier curve defined by points `(x1, y1)`, `(x2, y2)`, `(x3, y3)`, `(x4, y4)` with the quality controlled by `samples`  
+ - `convolute(kernel)`
+ applies a custom kernel to the image through image convolution. Works with square kernels of odd widths and heights (3x3, 5x5, ...)
 
  [^1]: credit for the font descriptions goes to www.codeyarns.com/tech/2015-03-11-fonts-in-opencv.html

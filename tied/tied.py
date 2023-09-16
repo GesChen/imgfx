@@ -23,6 +23,14 @@ def get_file_hash(file_path):
     with open(file_path, 'rb') as file:
         return md5(file.read()).hexdigest()
 
+def handle_replacements(line):
+    if line[0].isspace():
+        line = line.lstrip()
+        line = '\t' + line
+    line = line.replace('print', 'print_')
+    line = line.replace('time', 'timeElapsed')
+    return line
+
 ## display
 def print_(text):
     global terminal
@@ -342,20 +350,19 @@ def convolute(kernel):
     global IMAGE
     
     kernel = np.flip(np.array(kernel))
-    # Initialize an empty output image of the same shape as the input
+    # create empty output image of the same shape as the input
     output_image = np.zeros_like(IMAGE)
 
-    # Perform convolution for each color channel
+    # perform convolution for each color channel
     for channel in range(IMAGE.shape[2]):
         output_image[:, :, channel] = sp.signal.convolve2d(IMAGE[:, :, channel], kernel, mode='same', boundary='wrap')
 
-    # Ensure values are in the valid range (0-255 for uint8 images)
+    # restrict values to the valid range (0-255 for uint8 images)
     output_image = np.clip(output_image, 0, 255).astype(np.uint8)
 
     IMAGE = output_image
 
-
-
+# cli processing
 if len(sys.argv) != 2:
     print("Usage: py imaged.py <edit file>")
     sys.exit(1)
@@ -399,45 +406,42 @@ while running:
     if current_hash != lasthash or live: #only process file if it has changed or live update is on
         lasthash = current_hash
         with open(edit_filepath, 'r') as file:
+            # set some live variables
             startTime = time.time()
-            file = list(file)
             timeElapsed = datetime.now() - starttime
+
+            # convert file into list and iterate over it
+            file = list(file)
             l = 0
             while l < len(file):
+                # get the current line and process it properly
                 curLine = file[l]
-                if curLine[0].isspace():
-                    curLine.lstrip()
-                    curLine = '\t' + curLine
-                curLine = curLine.replace('print', 'print_')
-                curLine = curLine.replace('time', 'timeElapsed')
+                curLine = handle_replacements(curLine)
                 curLine = curLine.rstrip()
                 
+                # make sure this isn't the last line 
                 if l + 1 < len(file):
+                    # is the next line indented?
                     if file[l + 1][0].isspace() and not file[l + 1].isspace():
                         curLine += '\n'
                         l += 1
+                        # keep adding lines until end of for loop or end of file
                         while file[l][0].isspace():
-                            thisLine = file[l]
-
-                            if thisLine[0].isspace():
-                                thisLine = thisLine.lstrip()
-                                thisLine = '\t' + thisLine
-                            thisLine = thisLine.replace('print', 'print_')
-                            thisLine = thisLine.replace('time', 'timeElapsed')
-                            curLine += thisLine
+                            # add this line to the line to process with replacements
+                            curLine += handle_replacements(file[l])
 
                             l += 1
                             if l == len(file):
                                 break
-
+                
+                # try to execute line but print error if failure
                 try:
                     exec(curLine.strip())
                 except Exception as e:
                     ERROR(e, l)
                 l += 1
-
-                lineNo = l
+                lineNo = l # set global line number variable
 
             terminal[0] = 1 # terminal is ready to be printed
             update = True   # image is ready to be drawn
-    if not live: sleep(.002)
+    if not live: sleep(.002) # don't keep checking for performance optimization
