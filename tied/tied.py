@@ -13,7 +13,6 @@ import curses
 from screeninfo import get_monitors
 from hashlib import md5
 from time import sleep
-from datetime import datetime
 
 ## supporting functions
 def is_path(string):
@@ -44,25 +43,26 @@ def ERROR(reason, line):
 
 def curses_main(stdscr):
     global terminal
-    global file
+    global lines
     stdscr.clear()
 
     curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK) #type:ignore
     ERROR_COLOR = curses.color_pair(1)                        #type:ignore
 
     while running:
-        if lineNo < len(list(file)):
+        if lineNo < len(list(lines)):
             barlength = 20
             
-            progress = lineNo / len(list(file))
+            progress = lineNo / len(list(lines))
             chars = round(progress * barlength)
             progressText = f"Processing: [{'='*chars}{'-'*(barlength - chars)}] {progress:.2f}%"
 
             stdscr.addstr(0, 0, progressText)
 
         if terminal[0] == 1:
+            hold = True
             stdscr.clear()
-            stdscr.addstr(0, 0, f"Finished processing, took {(time.time() - startTime):.2f} seconds.")
+            stdscr.addstr(0, 0, f"Finished processing, took {(time.time() - iterationStartTime):.2f} seconds.")
             stdscr.refresh()
 
             for l, line in enumerate(terminal[1:]):
@@ -75,8 +75,8 @@ def curses_main(stdscr):
                 except:
                     pass
             
-            
             terminal[0] = 0
+            hold = False
         stdscr.refresh()
 
 def curses_thread():
@@ -171,7 +171,7 @@ def edit(path):
     IMAGE = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
 
 def dim():
-    print_(IMAGE.shape[:2][::-1])
+    return IMAGE.shape[:2][::-1]
 
 def save(path):
     if is_path(path):
@@ -273,11 +273,12 @@ def line(x1, y1, x2, y2, color, thickness):
 def polygon(points, color, thickness, closed = True):
     global IMAGE
     if len(color) == 3:
-        cv2.polylines(IMAGE, points, closed, color[:3], thickness)
+        cv2.polylines(IMAGE, np.int32([points]), closed, color[:3], thickness)
         return
     copy = IMAGE.copy()
     alpha = color[3]
-    cv2.polylines(IMAGE, [points], closed, color[:3], thickness)
+    print_(points)
+    cv2.polylines(IMAGE, np.int32([points]), closed, color[:3], thickness)
     cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
 
 def path(points, color, thickness):
@@ -363,17 +364,20 @@ def convolute(kernel):
     IMAGE = output_image
 
 # cli processing
+
 if len(sys.argv) != 2:
     print("Usage: py imaged.py <edit file>")
     sys.exit(1)
 else:
     edit_filepath = sys.argv[1]
 
+#edit_filepath = r'D:\Projects\Programming\Python Scripts\.image effects\imgfx\tied\outline.ed'
+
 # session variables
-file = ""
+lines = ""
 terminal = [0]
 timeElapsed = 0
-startTime = 0
+programStartTime = time.time()
 frame = 0
 update_frame = 0
 IMAGE = np.array([])
@@ -384,6 +388,7 @@ for m in get_monitors():
 window_size = 1000
 running = True
 lineNo = 0
+hold = False
 
 # another thread for interaction/preview
 iThread = threading.Thread(target=pyg_thread, name="Interaction")
@@ -394,8 +399,8 @@ cThread = threading.Thread(target=curses_thread, name="Curses")
 iThread.start()
 cThread.start()
 
+iterationStartTime = time.time()
 update = False
-starttime = datetime.now()
 lasthash = ''
 while running:
     variables = {}
@@ -403,35 +408,36 @@ while running:
 
     current_hash = get_file_hash(edit_filepath)
     # scan lines
-    if current_hash != lasthash or live: #only process file if it has changed or live update is on
+    if current_hash != lasthash or (live and not hold): #only process file if it has changed or live update is on
         lasthash = current_hash
         with open(edit_filepath, 'r') as file:
             # set some live variables
-            startTime = time.time()
-            timeElapsed = datetime.now() - starttime
+            iterationStartTime = time.time()
+            timeElapsed = time.time() - programStartTime
 
             # convert file into list and iterate over it
-            file = list(file)
+            lines = file.readlines()
+            length = len(lines)
             l = 0
-            while l < len(file):
+            while l < length:
                 # get the current line and process it properly
-                curLine = file[l]
+                curLine = lines[l]
                 curLine = handle_replacements(curLine)
                 curLine = curLine.rstrip()
                 
                 # make sure this isn't the last line 
-                if l + 1 < len(file):
+                if l + 1 < length:
                     # is the next line indented?
-                    if file[l + 1][0].isspace() and not file[l + 1].isspace():
+                    if lines[l + 1][0].isspace() and not lines[l + 1].isspace():
                         curLine += '\n'
                         l += 1
                         # keep adding lines until end of for loop or end of file
-                        while file[l][0].isspace():
+                        while lines[l][0].isspace():
                             # add this line to the line to process with replacements
-                            curLine += handle_replacements(file[l])
+                            curLine += handle_replacements(lines[l])
 
                             l += 1
-                            if l == len(file):
+                            if l == length:
                                 break
                 
                 # try to execute line but print error if failure
