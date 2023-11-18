@@ -277,7 +277,6 @@ def polygon(points, color, thickness, closed = True):
         return
     copy = IMAGE.copy()
     alpha = color[3]
-    print_(points)
     cv2.polylines(IMAGE, np.int32([points]), closed, color[:3], thickness)
     cv2.addWeighted(copy, alpha, IMAGE, 1 - alpha, 0, IMAGE)
 
@@ -363,6 +362,47 @@ def convolute(kernel):
 
     IMAGE = output_image
 
+def color_balance(lift, gamma, gain):
+    global IMAGE
+    
+    # clamp args to range [0, 1]
+    lift = max(0, min(lift, 1))
+    gamma = max(0, min(gamma, 1))
+    gain = max(0, min(gain, 1))
+
+    # apply ASC-CDL color balance
+    balanced_image = np.clip(IMAGE * (1 + lift), 0, 255)
+    balanced_image = np.clip(balanced_image ** (1 / gamma), 0, 255)
+    balanced_image = np.clip(balanced_image * (1 + gain), 0, 255)
+
+    # convert the image to uint8 
+    IMAGE = np.uint8(balanced_image)
+
+def hue(value):
+    global IMAGE
+
+    hsv_image = cv2.cvtColor(IMAGE, cv2.COLOR_BGR2HSV)
+    hsv_image[:, :, 0] = (hsv_image[:, :, 0] + value) % 180
+    
+    IMAGE = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
+
+def saturation(value):
+    global IMAGE
+    
+    hsv_image = cv2.cvtColor(IMAGE, cv2.COLOR_BGR2HSV)
+    hsv_image[:, :, 1] = np.clip(hsv_image[:, :, 1] * value, 0, 255)
+    
+    IMAGE = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
+
+def contrast(value):
+    global IMAGE
+    IMAGE = cv2.convertScaleAbs(IMAGE, alpha=value, beta=0)
+
+def brightness(value):
+    global IMAGE
+    IMAGE = cv2.convertScaleAbs(IMAGE, alpha=1.0, beta=value)
+
+
 # cli processing
 
 if len(sys.argv) != 2:
@@ -390,7 +430,7 @@ running = True
 lineNo = 0
 hold = False
 
-# another thread for interaction/preview
+# thread for interaction/preview
 iThread = threading.Thread(target=pyg_thread, name="Interaction")
 
 # seperate thread for terminal output
@@ -403,7 +443,7 @@ iterationStartTime = time.time()
 update = False
 lasthash = ''
 while running:
-    variables = {}
+    # reset
     terminal = [0]
 
     current_hash = get_file_hash(edit_filepath)

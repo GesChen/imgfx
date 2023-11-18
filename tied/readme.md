@@ -22,7 +22,7 @@ uses python to load and manipulate images like traditional image editors, runnin
  - `hex(hexadecimal string)`
  converts a hex color into an rgb color
 
-### drawing functions
+### editing functions
 `thickness`: positive number for thickness, -1 for fill  
 `color`: the color of the object, in `(R, G, B)` format (0 - 255) 
  - `rectangle/rect(x1, y1, x2, y2, color, thickness)`  
@@ -54,6 +54,16 @@ uses python to load and manipulate images like traditional image editors, runnin
  draws a bezier curve defined by points `(x1, y1)`, `(x2, y2)`, `(x3, y3)`, `(x4, y4)` with the quality controlled by `samples`  
  - `convolute(kernel)`
  applies a custom kernel to the image through image convolution. Works with square kernels of odd widths and heights (3x3, 5x5, ...)
+ - `color_balance(lift, gamma, gain)`
+ applies color balancing based on the ASC-CDL algorithm. 
+ - `hue(value)`
+ shifts the hue by `value` degrees
+ - `saturation(value)`
+ multiplies the saturation by `value`
+ - `contrast(value)`
+ currently doesn't quite work, adjusts the contrast of the image
+ - `brightness(value)`
+ multiplies the brightness by `value`
 
 ### variables
  - getting `dim()`
