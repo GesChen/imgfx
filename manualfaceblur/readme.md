@@ -1,6 +1,6 @@
 # Manual Face Blurring
 
-**Dependencies: **
+**Dependencies:**
  - pygame
  - opencv_python
  - numpy
