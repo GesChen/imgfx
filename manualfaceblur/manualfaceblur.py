@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import pygame
 from matplotlib import pyplot as plt
+import os
 
 def blur(image, region, radius):
     blurred_image = cv2.GaussianBlur(image, (radius, radius), 0)
